@@ -10,8 +10,8 @@ import (
     "errors"
     "fmt"
   /*"strconv"
-    "strings"
-    "encoding/json"*/
+    "strings"*/
+    "encoding/json"
 
   //"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
     "github.com/hyperledger/fabric/core/chaincode/shim"
@@ -40,6 +40,10 @@ type Diploma struct {
     UserId string `json:"user_id"`
     Label  string `json:"label"`
     Date   string `json:"date"`
+}
+
+type Record struct {
+    Fields []string;
 }
 
 func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
@@ -140,7 +144,9 @@ func (t *SimpleChaincode) insertRowUsers(stub *shim.ChaincodeStub, args []string
         return errors.New(msg)
     }
     if !ok {
-        return errors.New("insertRowUsers operation failed. Row with given key already exists")
+        msg := "insertRowUsers operation failed. Row with given key already exists"
+        fmt.Println(msg)
+        return errors.New(msg)
     }
     return nil
 }
@@ -166,7 +172,9 @@ func (t *SimpleChaincode) insertRowDiplomas(stub *shim.ChaincodeStub, args []str
         return errors.New(msg)
     }
     if !ok {
-        return errors.New("insertRowDiplomas operation failed. Row with given key already exists")
+        msg := "insertRowUsers operation failed. Row with given key already exists"
+        fmt.Println(msg)
+        return errors.New(msg)
     }
     return nil
 }
@@ -348,7 +356,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
     fmt.Printf("Query(...,'%s',%v)\n",function,args)
     if len(args) < 1 {
-        return nil, errors.New("Incorrect number of arguments. Expecting 1 or more argumenst")
+        return nil, errors.New("Incorrect number of arguments. Expecting 1 or more arguments")
     }
     switch function {
         case "query" :
@@ -365,9 +373,12 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
         case "getRowUsers" :
             return t.getRowUsers(stub,args[0]);
         case "getRowDiplomas" :
-            return t.getRowDiplomas(stub,args[0]);
+            if len(args) < 2 {
+                return nil, errors.New("Incorrect number of arguments. Expecting 2 or more arguments")
+            }
+            return t.getRowDiplomas(stub,args[0],args[1]);
         case "getRowsDiplomas" :
-            return t.getRowsDiplomas(stub,args[0],args[1]);
+            return t.getRowsDiplomas(stub,args[0]);
         default:
             return nil, errors.New("Unsupported function '"+function+"'")
     }
@@ -384,27 +395,32 @@ func (t *SimpleChaincode) getRowUsers(stub *shim.ChaincodeStub, key string) ([]b
         return nil, fmt.Errorf("getRowUsers failed, %s", err)
     }
 
-    rowString := fmt.Sprintf("%s", row)
-    return []byte(rowString), nil
-}
-
-func (t *SimpleChaincode) getRowDiplomas(stub *shim.ChaincodeStub, key string) ([]byte, error) {
-    fmt.Printf("getRowDiplomas(...,'%s')\n",key)
-    var columns []shim.Column
-    col := shim.Column{Value: &shim.Column_String_{String_: key}}
-    columns = append(columns, col)
-
-    row, err := stub.GetRow("Diplomas", columns)
-    if err != nil {
-        return nil, fmt.Errorf("getRowDiplomas failed, %s", err)
+    if len(row.Columns) == 0 {
+        fmt.Println("No matching rows")
+        return nil,nil
     }
 
-    rowString := fmt.Sprintf("%s", row)
-    return []byte(rowString), nil
+    userId    := row.Columns[0].GetString_()
+    email     := row.Columns[1].GetString_()
+    firstName := row.Columns[2].GetString_()
+    lastName  := row.Columns[3].GetString_()
+    fbId      := row.Columns[4].GetString_()
+
+    user := User{UserId: userId, Email: email, FirstName: firstName, LastName: lastName, FbId: fbId}
+    fmt.Printf("user=%v\n",user)
+
+    userBytes, err := json.Marshal(&user)
+    if err != nil  {
+        msg := "Error marshalling user " + userId
+        fmt.Println(msg)
+        return nil, errors.New(msg)
+    }
+    fmt.Printf("Marshall(user) -> %v\n",userBytes)
+    return userBytes,nil
 }
 
-func (t *SimpleChaincode) getRowsDiplomas(stub *shim.ChaincodeStub, key1, key2 string) ([]byte, error) {
-    fmt.Printf("getRowsDiplomas(...,'%s','%s')\n",key1,key2)
+func (t *SimpleChaincode) getRowDiplomas(stub *shim.ChaincodeStub, key1, key2 string) ([]byte, error) {
+    fmt.Printf("getRowDiplomas(...,'%s','%s')\n",key1,key2)
     var columns []shim.Column
     col1 := shim.Column{Value: &shim.Column_String_{String_: key1}}
     columns = append(columns, col1)
@@ -413,11 +429,81 @@ func (t *SimpleChaincode) getRowsDiplomas(stub *shim.ChaincodeStub, key1, key2 s
 
     row, err := stub.GetRow("Diplomas", columns)
     if err != nil {
+        return nil, fmt.Errorf("getRowDiplomas failed, %s", err)
+    }
+
+    if len(row.Columns) == 0 {
+        fmt.Println("No matching rows")
+        return nil,nil
+    }
+
+    diplomaId := row.Columns[0].GetString_()
+    userId    := row.Columns[1].GetString_()
+    label     := row.Columns[2].GetString_()
+    date      := row.Columns[3].GetString_()
+
+    diploma := Diploma{DiplomaId: diplomaId, UserId: userId, Label: label, Date: date }
+    fmt.Printf("diploma=%v\n",diploma)
+
+    // Marshal the structure
+    diplomaBytes, err := json.Marshal(&diploma)
+    if err != nil  {
+        msg := "Error marshalling diploma " + diplomaId
+        fmt.Println(msg)
+        return nil, errors.New(msg)
+    }
+    fmt.Printf("Marshall(diploma) -> %v\n",diplomaBytes) 
+    return diplomaBytes,nil
+}
+
+func (t *SimpleChaincode) getRowsDiplomas(stub *shim.ChaincodeStub, key string) ([]byte, error) {
+    fmt.Printf("getRowsDiplomas(...,'%s')\n",key)
+    var columns []shim.Column
+    col1 := shim.Column{Value: &shim.Column_String_{String_: key}}
+    columns = append(columns, col1)
+
+    rowChannel, err := stub.GetRows("Diplomas", columns)
+    if err != nil {
         return nil, fmt.Errorf("getRowsDiplomas failed, %s", err)
     }
 
-    rowString := fmt.Sprintf("%s", row)
-    return []byte(rowString), nil
+    var rows []shim.Row
+    for {
+        select {
+        case row, ok := <-rowChannel:
+            if !ok {
+                rowChannel = nil
+            } else {
+                rows = append(rows, row)
+            }
+        }
+        if rowChannel == nil {
+            break
+        }
+    }
+
+    if len(rows) == 0 {
+        fmt.Println("No matching rows")
+        return nil,nil
+    }
+
+    diplomaId := rows[0].Columns[0].GetString_()
+    userId    := rows[0].Columns[1].GetString_()
+    label     := rows[0].Columns[2].GetString_()
+    date      := rows[0].Columns[3].GetString_()
+
+    diploma := Diploma{DiplomaId: diplomaId, UserId: userId, Label: label, Date: date }
+    fmt.Printf("diploma=%v\n",diploma)
+
+    // Marshal the structure
+    diplomaBytes, err := json.Marshal(&diploma)
+    if err != nil  {
+        msg := "Error marshalling diploma " + diplomaId
+        fmt.Println(msg)
+        return nil, errors.New(msg)
+    }
+    fmt.Printf("Marshall(diploma) -> %v\n",diplomaBytes) 
+    return diplomaBytes,nil
 }
 
 func main() {
