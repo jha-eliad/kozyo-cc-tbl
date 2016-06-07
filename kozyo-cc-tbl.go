@@ -72,7 +72,11 @@ func (t *SimpleChaincode) createTableUsers(stub *shim.ChaincodeStub) error {
 	columnDefsUsers = append(columnDefsUsers, &columnLastNameDef)
 	columnDefsUsers = append(columnDefsUsers, &columnFbIdDef)
 
-	return stub.CreateTable("Users", columnDefsUsers)
+    if err := stub.CreateTable("Users", columnDefsUsers); err != nil {
+        msg := fmt.Sprintf("Error in CreateTable: %s", err)
+        fmt.Println(msg)
+    }
+	return nil;
 }
 
 func (t *SimpleChaincode) createTableDiplomas(stub *shim.ChaincodeStub) error {
@@ -88,7 +92,31 @@ func (t *SimpleChaincode) createTableDiplomas(stub *shim.ChaincodeStub) error {
 	columnDefsDiplomas = append(columnDefsDiplomas, &columnLabelDef)
 	columnDefsDiplomas = append(columnDefsDiplomas, &columnDateDef)
 
-	return stub.CreateTable("Diplomas", columnDefsDiplomas)
+    if err := stub.CreateTable("Diplomas", columnDefsDiplomas); err != nil {
+        msg := fmt.Sprintf("Error in CreateTable: %s", err)
+        fmt.Println(msg)
+    }
+	return nil;
+}
+
+func (t *SimpleChaincode) deleteTableUsers(stub *shim.ChaincodeStub) error {
+    fmt.Println("deleteTableUsers()")
+
+    if err := stub.DeleteTable("Users"); err != nil {
+        msg := fmt.Sprintf("Error in DeleteTable: %s", err)
+        fmt.Println(msg)
+    }
+	return nil;
+}
+
+func (t *SimpleChaincode) deleteTableDiplomas(stub *shim.ChaincodeStub) error {
+    fmt.Println("deleteTableDiplomas()")
+
+    if err := stub.DeleteTable("Diplomas"); err != nil {
+        msg := fmt.Sprintf("Error in DeleteTable: %s", err)
+        fmt.Println(msg)
+    }
+	return nil;
 }
 
 func (t *SimpleChaincode) insertRowUsers(stub *shim.ChaincodeStub, args []string) error {
@@ -293,6 +321,10 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
             return nil, t.createTableUsers(stub);
         case "createTableDiplomas" :
             return nil, t.createTableDiplomas(stub);
+        case "deleteTableUsers" :
+            return nil, t.deleteTableUsers(stub);
+        case "deleteTableDiplomas" :
+            return nil, t.deleteTableDiplomas(stub);
         case "insertRowUsers" :
             return nil, t.insertRowUsers(stub, args)
         case "insertRowDiplomas" :
@@ -320,22 +352,6 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
     }
     switch function {
         case "query" :
-        /*if args[0] == "getAllUsers" {
-            fmt.Println("Getting all users")
-            allUsers, err := getAllUsers(stub)
-            if err != nil {
-                fmt.Println("Error from getAllUsers")   // Note: Error had printed in getAllUsers
-                return nil, err
-            } else {
-                allUsersBytes, err1 := json.Marshal(&allUsers)
-                if err1 != nil {
-                    fmt.Println("Error marshalling allUsers => "+err.Error())
-                    return nil, err1
-                }
-                fmt.Printf("Returning -> %v\n",allUsersBytes)
-                return allUsersBytes, nil
-            }
-        } else { */
             key := args[0]
             fmt.Println("Generic Query call, get state '"+key+"'")
             bytes, err := stub.GetState(key)
@@ -403,52 +419,6 @@ func (t *SimpleChaincode) getRowsDiplomas(stub *shim.ChaincodeStub, key1, key2 s
     rowString := fmt.Sprintf("%s", row)
     return []byte(rowString), nil
 }
-
-/*
-func getAllUsers(stub *shim.ChaincodeStub) ([]User, error) {
-    var allUsers []User
-    // Get list of all the keys
-    keysBytes, err := stub.GetState(allUsersKey)
-    if err != nil {
-        fmt.Println("Error get state "+allUsersKey+" => "+err.Error())
-        return nil, err
-    }
-    fmt.Printf("GetState('%v') -> %v\n",allUsersKey,keysBytes)
-
-    var keys []string
-    err = json.Unmarshal(keysBytes, &keys)
-    if err != nil {
-        fmt.Println("Error unmarshalling "+allUsersKey+" => "+err.Error())
-        return nil, err
-    }
-    fmt.Printf("Unmarshal(keysBytes) -> %v\n",keys)
-
-    // Get all the Users
-    for _, userKey := range keys {
-        userBytes, err := stub.GetState(userKey)
-        if err != nil {
-            fmt.Println("Error: get state " + userKey+" => "+err.Error())
-            return nil, err
-        }
-        fmt.Printf("GetState('%v') -> %v\n",userKey,userBytes)
-
-        var user User
-        err = json.Unmarshal(userBytes, &user)
-        if err != nil {
-            fmt.Println("Error: unmarshal " + userKey+" => "+err.Error())
-            return nil, err
-        }
-        fmt.Printf("Unmarshal(userBytes) -> %v\n",user)
-
-        // XXX JHA : ? convertir les clefs de user.Diplomas en structures ?
-
-        fmt.Println("Appending " + userKey)
-        allUsers = append(allUsers, user)
-    }
-
-    return allUsers, nil
-}
-*/
 
 func main() {
     err := shim.Start(new(SimpleChaincode))
