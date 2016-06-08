@@ -9,8 +9,8 @@ package main
 import (
     "errors"
     "fmt"
-    "strconv"
-  /*"strings"*/
+  /*"strconv"
+    "strings"*/
     "encoding/json"
 
   //"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
@@ -36,8 +36,8 @@ type User struct {
 }
 
 type Diploma struct {
-    DiplomaId string `json:"diploma_id"`
     UserId string `json:"user_id"`
+    DiplomaId string `json:"diploma_id"`
     Label  string `json:"label"`
     Date   string `json:"date"`
 }
@@ -86,13 +86,13 @@ func (t *SimpleChaincode) createTableUsers(stub *shim.ChaincodeStub) error {
 func (t *SimpleChaincode) createTableDiplomas(stub *shim.ChaincodeStub) error {
     fmt.Println("createTableDiplomas()")
 	var columnDefsDiplomas []*shim.ColumnDefinition
-	columnDiplomaIdDef := shim.ColumnDefinition{Name: "DiplomaId", Type: shim.ColumnDefinition_STRING, Key: true}
 	columnUserIdDef    := shim.ColumnDefinition{Name: "UserId", Type: shim.ColumnDefinition_STRING, Key: true}
+	columnDiplomaIdDef := shim.ColumnDefinition{Name: "DiplomaId", Type: shim.ColumnDefinition_STRING, Key: true}
 	columnLabelDef     := shim.ColumnDefinition{Name: "Label", Type: shim.ColumnDefinition_STRING, Key: false}
 	columnDateDef      := shim.ColumnDefinition{Name: "Date", Type: shim.ColumnDefinition_STRING, Key: false}
 
-	columnDefsDiplomas = append(columnDefsDiplomas, &columnDiplomaIdDef)
 	columnDefsDiplomas = append(columnDefsDiplomas, &columnUserIdDef)
+	columnDefsDiplomas = append(columnDefsDiplomas, &columnDiplomaIdDef)
 	columnDefsDiplomas = append(columnDefsDiplomas, &columnLabelDef)
 	columnDefsDiplomas = append(columnDefsDiplomas, &columnDateDef)
 
@@ -197,6 +197,8 @@ func (t *SimpleChaincode) deleteRowUsers(stub *shim.ChaincodeStub, args []string
         fmt.Println(msg)
         return errors.New(msg)
     }
+
+    //XXX JHA : Effacer tous les diplomes avec userId == col1Val
 
     return nil
 }
@@ -377,8 +379,6 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
                 return nil, errors.New("Incorrect number of arguments. Expecting 2 or more arguments")
             }
             return t.getRowDiplomas(stub,args[0],args[1]);
-        case "getRowByDIdDiplomas" :
-            return t.getRowByDIdDiplomas(stub,args[0]);
         case "getRowsByUIdDiplomas" :
             return t.getRowsByUIdDiplomas(stub,args[0]);
         default:
@@ -422,13 +422,13 @@ func (t *SimpleChaincode) getRowUsers(stub *shim.ChaincodeStub, keyUId string) (
     return userBytes,nil
 }
 
-// Get a diploma by DiplomaId & UserId
-func (t *SimpleChaincode) getRowDiplomas(stub *shim.ChaincodeStub, keyDId, keyUId string) ([]byte, error) {
+// Get a diploma by UserId & DiplomaId
+func (t *SimpleChaincode) getRowDiplomas(stub *shim.ChaincodeStub, keyUId, keyDId string) ([]byte, error) {
     fmt.Printf("getRowDiplomas(...,'%s','%s')\n",keyDId,keyUId)
     var columns []shim.Column
-    col1 := shim.Column{Value: &shim.Column_String_{String_: keyDId}}
+    col1 := shim.Column{Value: &shim.Column_String_{String_: keyUId}}
     columns = append(columns, col1)
-    col2 := shim.Column{Value: &shim.Column_String_{String_: keyUId}}
+    col2 := shim.Column{Value: &shim.Column_String_{String_: keyDId}}
     columns = append(columns, col2)
 
     row, err := stub.GetRow("Diplomas", columns)
@@ -441,62 +441,10 @@ func (t *SimpleChaincode) getRowDiplomas(stub *shim.ChaincodeStub, keyDId, keyUI
         return nil,nil
     }
 
-    diplomaId := row.Columns[0].GetString_()    // Note: We should have diplomaId == keyDId
-    userId    := row.Columns[1].GetString_()    // Note: We should have userId == keyUId
+    userId    := row.Columns[0].GetString_()    // Note: We should have userId == keyUId
+    diplomaId := row.Columns[1].GetString_()    // Note: We should have diplomaId == keyDId
     label     := row.Columns[2].GetString_()
     date      := row.Columns[3].GetString_()
-
-    diploma := Diploma{DiplomaId: diplomaId, UserId: userId, Label: label, Date: date }
-    fmt.Printf("diploma=%v\n",diploma)
-
-    // Marshal the structure
-    diplomaBytes, err := json.Marshal(&diploma)
-    if err != nil  {
-        msg := "Error marshalling diploma " + diplomaId
-        fmt.Println(msg)
-        return nil, errors.New(msg)
-    }
-    fmt.Printf("Marshall(diploma) -> %v\n",diplomaBytes)
-    return diplomaBytes,nil
-}
-
-// Get a diploma by DiplomaId
-func (t *SimpleChaincode) getRowByDIdDiplomas(stub *shim.ChaincodeStub, keyDId string) ([]byte, error) {
-    fmt.Printf("getRowByDIdDiplomas(...,'%s')\n",keyDId)
-    var columns []shim.Column
-    col1 := shim.Column{Value: &shim.Column_String_{String_: keyDId}}
-    columns = append(columns, col1)
-
-    rowChannel, err := stub.GetRows("Diplomas", columns)
-    if err != nil {
-        return nil, fmt.Errorf("getRowByDIdDiplomas failed, %s", err)
-    }
-
-    var rows []shim.Row
-    for {
-        select {
-        case row, ok := <-rowChannel:
-            if !ok {
-                rowChannel = nil
-            } else {
-                rows = append(rows, row)
-            }
-        }
-        if rowChannel == nil {
-            break
-        }
-    }
-
-    if len(rows) == 0 {
-        fmt.Println("No matching rows")
-        return nil,nil
-    }
-
-    // Note: We should have 1 and only 1 row
-    diplomaId := rows[0].Columns[0].GetString_()    // Note: We should have diplomaId == keyDId
-    userId    := rows[0].Columns[1].GetString_()
-    label     := rows[0].Columns[2].GetString_()
-    date      := rows[0].Columns[3].GetString_()
 
     diploma := Diploma{DiplomaId: diplomaId, UserId: userId, Label: label, Date: date }
     fmt.Printf("diploma=%v\n",diploma)
@@ -516,17 +464,8 @@ func (t *SimpleChaincode) getRowByDIdDiplomas(stub *shim.ChaincodeStub, keyDId s
 func (t *SimpleChaincode) getRowsByUIdDiplomas(stub *shim.ChaincodeStub, keyUId string) ([]byte, error) {
     fmt.Printf("getRowsByUIdDiplomas(...,'%s')\n",keyUId)
     var columns []shim.Column
-    /*
-    col1 := shim.Column{}
-    columns = append(columns, col1) // => Liste vide
-    */
-  //columns = append(columns, nil) // => Liste vide
-  //col1 := shim.Column{Value: &shim.Column_String_{String_: ""}}   // => Liste vide
-    var empty string
-    col1 := shim.Column{Value: &shim.Column_String_{String_: empty}}
-    columns = append(columns, col1) // => Liste vide
-    col2 := shim.Column{Value: &shim.Column_String_{String_: keyUId}}
-    columns = append(columns, col2)
+    col1 := shim.Column{Value: &shim.Column_String_{String_: keyUId}}
+    columns = append(columns, col1)
 
     tableName := "Diplomas"
     rowChannel, err := stub.GetRows(tableName, columns)
@@ -551,38 +490,13 @@ func (t *SimpleChaincode) getRowsByUIdDiplomas(stub *shim.ChaincodeStub, keyUId 
 
     if len(rows) == 0 {
         fmt.Println("No matching rows")
-        // return nil,nil
-
-        // Retrieve all the keys for the rows
-        tableNameKey := strconv.Itoa(len(tableName)) + tableName
-        iter, err := stub.RangeQueryState(tableNameKey+"1", tableNameKey+":")
-        if err != nil {
-            fmt.Printf("Error in RangeQueryState(): %s\n", err)
-            return nil,nil
-        }
-        defer iter.Close()
-        for iter.HasNext() {
-            key, val, err := iter.Next()
-            if err != nil {
-                fmt.Printf("Error in Next(): %s\n", err)
-                return nil,nil
-            }
-            fmt.Printf("['%v'] <=> %v\n", key,val)
-            /*
-            err = stub.GetState(key)
-            if err != nil {
-                fmt.Printf("Error deleting table: %s", err)
-                return nil,nil
-            }
-            */
-        }
         return nil,nil
     }
 
     var diplomas []Diploma
     for i,_ := range rows {
-        diplomaId := rows[i].Columns[0].GetString_()
-        userId    := rows[i].Columns[1].GetString_()
+        userId    := rows[i].Columns[0].GetString_()
+        diplomaId := rows[i].Columns[1].GetString_()
         label     := rows[i].Columns[2].GetString_()
         date      := rows[i].Columns[3].GetString_()
 
