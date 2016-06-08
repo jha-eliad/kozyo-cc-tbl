@@ -9,8 +9,8 @@ package main
 import (
     "errors"
     "fmt"
-  /*"strconv"
-    "strings"*/
+    "strconv"
+  /*"strings"*/
     "encoding/json"
 
   //"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
@@ -518,13 +518,18 @@ func (t *SimpleChaincode) getRowsByUIdDiplomas(stub *shim.ChaincodeStub, keyUId 
     var columns []shim.Column
     /*
     col1 := shim.Column{}
-    columns = append(columns, col1) // => Pas bon
+    columns = append(columns, col1) // => Liste vide
     */
-    columns = append(columns, nil)
+  //columns = append(columns, nil) // => Liste vide
+  //col1 := shim.Column{Value: &shim.Column_String_{String_: ""}}   // => Liste vide
+    var empty string
+    col1 := shim.Column{Value: &shim.Column_String_{String_: empty}}
+    columns = append(columns, col1) // => Liste vide
     col2 := shim.Column{Value: &shim.Column_String_{String_: keyUId}}
     columns = append(columns, col2)
 
-    rowChannel, err := stub.GetRows("Diplomas", columns)
+    tableName := "Diplomas"
+    rowChannel, err := stub.GetRows(tableName, columns)
     if err != nil {
         return nil, fmt.Errorf("getRowsByUIdDiplomas failed, %s", err)
     }
@@ -546,6 +551,31 @@ func (t *SimpleChaincode) getRowsByUIdDiplomas(stub *shim.ChaincodeStub, keyUId 
 
     if len(rows) == 0 {
         fmt.Println("No matching rows")
+        // return nil,nil
+
+        // Retrieve all the keys for the rows
+        tableNameKey := strconv.Itoa(len(tableName)) + tableName
+        iter, err := stub.RangeQueryState(tableNameKey+"1", tableNameKey+":")
+        if err != nil {
+            fmt.Printf("Error in RangeQueryState(): %s\n", err)
+            return nil,nil
+        }
+        defer iter.Close()
+        for iter.HasNext() {
+            key, val, err := iter.Next()
+            if err != nil {
+                fmt.Printf("Error in Next(): %s\n", err)
+                return nil,nil
+            }
+            fmt.Printf("['%v'] <=> %v\n", key,val)
+            /*
+            err = stub.GetState(key)
+            if err != nil {
+                fmt.Printf("Error deleting table: %s", err)
+                return nil,nil
+            }
+            */
+        }
         return nil,nil
     }
 
