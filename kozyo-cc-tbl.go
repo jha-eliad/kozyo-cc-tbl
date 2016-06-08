@@ -424,7 +424,7 @@ func (t *SimpleChaincode) getRowUsers(stub *shim.ChaincodeStub, keyUId string) (
 
 // Get a diploma by UserId & DiplomaId
 func (t *SimpleChaincode) getRowDiplomas(stub *shim.ChaincodeStub, keyUId, keyDId string) ([]byte, error) {
-    fmt.Printf("getRowDiplomas(...,'%s','%s')\n",keyDId,keyUId)
+    fmt.Printf("getRowDiplomas(...,'%s','%s')\n",keyUId,keyDId)
     var columns []shim.Column
     col1 := shim.Column{Value: &shim.Column_String_{String_: keyUId}}
     columns = append(columns, col1)
