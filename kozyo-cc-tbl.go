@@ -50,8 +50,23 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
     // Initialize the collection of commercial paper keys
     fmt.Println("Initializing kozyo")
 
+    usersTable, err := stub.GetTable("Users")
+    if usersTable != nil && err == nil {
+        fmt.Println("Users table already exists, deleting it")
+        if err := t.deleteTableUsers(stub); err != nil {
+            return nil, err
+        }
+    }
     if err := t.createTableUsers(stub); err != nil {
         return nil, err
+    }
+
+    diplomasTable, err := stub.GetTable("Diplomas")
+    if diplomasTable != nil && err == nil {
+        fmt.Println("Diplomas table already exists, deleting it")
+        if err := t.deleteTableDiplomas(stub); err != nil {
+            return nil, err
+        }
     }
     if err := t.createTableDiplomas(stub); err != nil {
         return nil, err
