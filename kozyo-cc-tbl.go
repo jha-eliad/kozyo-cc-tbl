@@ -53,18 +53,6 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
     // Initialize the collection of commercial paper keys
     fmt.Println("Initializing kozyo")
 
-    // Set the admin
-	// The metadata will contain the certificate of the administrator
-	adminCert, err := stub.GetCallerMetadata()
-	if err != nil {
-		return nil, errors.New("Failed getting metadata.")
-	}
-	if len(adminCert) == 0 {
-		return nil, errors.New("Invalid admin certificate. Empty.")
-	}
-
-	stub.PutState("admin", adminCert)
-
     usersTable, err := stub.GetTable("Users")
     if usersTable != nil && err == nil {
         fmt.Println("Users table already exists, deleting it")
@@ -89,54 +77,6 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 
     fmt.Println("Initialization complete")
     return nil, nil
-}
-
-func (t *SimpleChaincode) isCaller(stub *shim.ChaincodeStub, certificate []byte) (bool, error) {
-	myLogger.Debug("Check caller...")
-
-	// In order to enforce access control, we require that the
-	// metadata contains the signature under the signing key corresponding
-	// to the verification key inside certificate of
-	// the payload of the transaction (namely, function name and args) and
-	// the transaction binding (to avoid copying attacks)
-
-	// Verify \sigma=Sign(certificate.sk, tx.Payload||tx.Binding) against certificate.vk
-	// \sigma is in the metadata
-
-	sigma, err := stub.GetCallerMetadata()
-	if err != nil {
-		return false, errors.New("Failed getting metadata")
-	}
-	payload, err := stub.GetPayload()
-	if err != nil {
-		return false, errors.New("Failed getting payload")
-	}
-	binding, err := stub.GetBinding()
-	if err != nil {
-		return false, errors.New("Failed getting binding")
-	}
-
-	myLogger.Debug("passed certificate [% x]", certificate)
-	myLogger.Debug("passed sigma [% x]", sigma)
-	myLogger.Debug("passed payload [% x]", payload)
-	myLogger.Debug("passed binding [% x]", binding)
-
-	ok, err := stub.VerifySignature(
-		certificate,
-		sigma,
-		append(payload, binding...),
-	)
-	if err != nil {
-		myLogger.Error("Failed checking signature [%s]", err)
-		return ok, err
-	}
-	if !ok {
-		myLogger.Error("Invalid signature")
-	}
-
-	myLogger.Debug("Check caller...Verified!")
-
-	return ok, err
 }
 
 func (t *SimpleChaincode) createTableUsers(stub *shim.ChaincodeStub) error {
@@ -444,26 +384,6 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 
 func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
     fmt.Printf("Invoke(...,'%s',%v)\n",function,args)
-	// Verify the identity of the caller
-	// Only an administrator can invoke a function
-	adminCertificate, err := stub.GetState("admin")
-	if err != nil {
-        msg := "Failed fetching admin identity"
-		myLogger.Error(msg)
-		return nil, errors.New(msg)
-	}
-
-	ok, err := t.isCaller(stub, adminCertificate)
-	if err != nil {
-        msg := "Failed checking admin identity"
-		myLogger.Error(msg)
-		return nil, errors.New(msg)
-	}
-	if !ok {
-        msg := "The caller is not an administrator"
-		myLogger.Error(msg)
-		return nil, errors.New(msg)
-	}
     // Handle different functions
     switch function {
         case "init":                         // Initialize the chaincode
