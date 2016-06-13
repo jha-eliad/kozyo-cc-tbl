@@ -15,10 +15,10 @@ import (
 
   //"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
     "github.com/hyperledger/fabric/core/chaincode/shim"
-	"github.com/op/go-logging"
+  //"github.com/op/go-logging"
 )
 
-var myLogger = logging.MustGetLogger("kozyo")
+//var myLogger = logging.MustGetLogger("kozyo")
 
 // SimpleChaincode example simple Chaincode implementation
 type SimpleChaincode struct {
@@ -81,44 +81,44 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 
 func (t *SimpleChaincode) createTableUsers(stub *shim.ChaincodeStub) error {
     fmt.Println("createTableUsers()")
-	var columnDefsUsers []*shim.ColumnDefinition
-	columnUserIdDef    := shim.ColumnDefinition{Name: "UserId", Type: shim.ColumnDefinition_STRING, Key: true}
-	columnEmailDef     := shim.ColumnDefinition{Name: "Email", Type: shim.ColumnDefinition_STRING, Key: false}
-	columnFirstNameDef := shim.ColumnDefinition{Name: "FirstName", Type: shim.ColumnDefinition_STRING, Key: false}
-	columnLastNameDef  := shim.ColumnDefinition{Name: "LastName", Type: shim.ColumnDefinition_STRING, Key: false}
-	columnFbIdDef      := shim.ColumnDefinition{Name: "FbId", Type: shim.ColumnDefinition_STRING, Key: false}
+    var columnDefsUsers []*shim.ColumnDefinition
+    columnUserIdDef    := shim.ColumnDefinition{Name: "UserId", Type: shim.ColumnDefinition_STRING, Key: true}
+    columnEmailDef     := shim.ColumnDefinition{Name: "Email", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnFirstNameDef := shim.ColumnDefinition{Name: "FirstName", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnLastNameDef  := shim.ColumnDefinition{Name: "LastName", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnFbIdDef      := shim.ColumnDefinition{Name: "FbId", Type: shim.ColumnDefinition_STRING, Key: false}
 
-	columnDefsUsers = append(columnDefsUsers, &columnUserIdDef)
-	columnDefsUsers = append(columnDefsUsers, &columnEmailDef)
-	columnDefsUsers = append(columnDefsUsers, &columnFirstNameDef)
-	columnDefsUsers = append(columnDefsUsers, &columnLastNameDef)
-	columnDefsUsers = append(columnDefsUsers, &columnFbIdDef)
+    columnDefsUsers = append(columnDefsUsers, &columnUserIdDef)
+    columnDefsUsers = append(columnDefsUsers, &columnEmailDef)
+    columnDefsUsers = append(columnDefsUsers, &columnFirstNameDef)
+    columnDefsUsers = append(columnDefsUsers, &columnLastNameDef)
+    columnDefsUsers = append(columnDefsUsers, &columnFbIdDef)
 
     if err := stub.CreateTable("Users", columnDefsUsers); err != nil {
         msg := fmt.Sprintf("Error in CreateTable: %s", err)
         fmt.Println(msg)
     }
-	return nil;
+    return nil;
 }
 
 func (t *SimpleChaincode) createTableDiplomas(stub *shim.ChaincodeStub) error {
     fmt.Println("createTableDiplomas()")
-	var columnDefsDiplomas []*shim.ColumnDefinition
-	columnUserIdDef    := shim.ColumnDefinition{Name: "UserId", Type: shim.ColumnDefinition_STRING, Key: true}
-	columnDiplomaIdDef := shim.ColumnDefinition{Name: "DiplomaId", Type: shim.ColumnDefinition_STRING, Key: true}
-	columnLabelDef     := shim.ColumnDefinition{Name: "Label", Type: shim.ColumnDefinition_STRING, Key: false}
-	columnDateDef      := shim.ColumnDefinition{Name: "Date", Type: shim.ColumnDefinition_STRING, Key: false}
+    var columnDefsDiplomas []*shim.ColumnDefinition
+    columnUserIdDef    := shim.ColumnDefinition{Name: "UserId", Type: shim.ColumnDefinition_STRING, Key: true}
+    columnDiplomaIdDef := shim.ColumnDefinition{Name: "DiplomaId", Type: shim.ColumnDefinition_STRING, Key: true}
+    columnLabelDef     := shim.ColumnDefinition{Name: "Label", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnDateDef      := shim.ColumnDefinition{Name: "Date", Type: shim.ColumnDefinition_STRING, Key: false}
 
-	columnDefsDiplomas = append(columnDefsDiplomas, &columnUserIdDef)
-	columnDefsDiplomas = append(columnDefsDiplomas, &columnDiplomaIdDef)
-	columnDefsDiplomas = append(columnDefsDiplomas, &columnLabelDef)
-	columnDefsDiplomas = append(columnDefsDiplomas, &columnDateDef)
+    columnDefsDiplomas = append(columnDefsDiplomas, &columnUserIdDef)
+    columnDefsDiplomas = append(columnDefsDiplomas, &columnDiplomaIdDef)
+    columnDefsDiplomas = append(columnDefsDiplomas, &columnLabelDef)
+    columnDefsDiplomas = append(columnDefsDiplomas, &columnDateDef)
 
     if err := stub.CreateTable("Diplomas", columnDefsDiplomas); err != nil {
         msg := fmt.Sprintf("Error in CreateTable: %s", err)
         fmt.Println(msg)
     }
-	return nil;
+    return nil;
 }
 
 func (t *SimpleChaincode) deleteTableUsers(stub *shim.ChaincodeStub) error {
@@ -128,7 +128,7 @@ func (t *SimpleChaincode) deleteTableUsers(stub *shim.ChaincodeStub) error {
         msg := fmt.Sprintf("Error in DeleteTable: %s", err)
         fmt.Println(msg)
     }
-	return nil;
+    return nil;
 }
 
 func (t *SimpleChaincode) deleteTableDiplomas(stub *shim.ChaincodeStub) error {
@@ -138,7 +138,7 @@ func (t *SimpleChaincode) deleteTableDiplomas(stub *shim.ChaincodeStub) error {
         msg := fmt.Sprintf("Error in DeleteTable: %s", err)
         fmt.Println(msg)
     }
-	return nil;
+    return nil;
 }
 
 func (t *SimpleChaincode) insertRowUsers(stub *shim.ChaincodeStub, args []string) error {
