@@ -15,7 +15,10 @@ import (
 
   //"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
     "github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/op/go-logging"
 )
+
+var myLogger = logging.MustGetLogger("kozyo")
 
 // SimpleChaincode example simple Chaincode implementation
 type SimpleChaincode struct {
@@ -50,6 +53,18 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
     // Initialize the collection of commercial paper keys
     fmt.Println("Initializing kozyo")
 
+    // Set the admin
+	// The metadata will contain the certificate of the administrator
+	adminCert, err := stub.GetCallerMetadata()
+	if err != nil {
+		return nil, errors.New("Failed getting metadata.")
+	}
+	if len(adminCert) == 0 {
+		return nil, errors.New("Invalid admin certificate. Empty.")
+	}
+
+	stub.PutState("admin", adminCert)
+
     usersTable, err := stub.GetTable("Users")
     if usersTable != nil && err == nil {
         fmt.Println("Users table already exists, deleting it")
@@ -74,6 +89,54 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 
     fmt.Println("Initialization complete")
     return nil, nil
+}
+
+func (t *SimpleChaincode) isCaller(stub *shim.ChaincodeStub, certificate []byte) (bool, error) {
+	myLogger.Debug("Check caller...")
+
+	// In order to enforce access control, we require that the
+	// metadata contains the signature under the signing key corresponding
+	// to the verification key inside certificate of
+	// the payload of the transaction (namely, function name and args) and
+	// the transaction binding (to avoid copying attacks)
+
+	// Verify \sigma=Sign(certificate.sk, tx.Payload||tx.Binding) against certificate.vk
+	// \sigma is in the metadata
+
+	sigma, err := stub.GetCallerMetadata()
+	if err != nil {
+		return false, errors.New("Failed getting metadata")
+	}
+	payload, err := stub.GetPayload()
+	if err != nil {
+		return false, errors.New("Failed getting payload")
+	}
+	binding, err := stub.GetBinding()
+	if err != nil {
+		return false, errors.New("Failed getting binding")
+	}
+
+	myLogger.Debug("passed certificate [% x]", certificate)
+	myLogger.Debug("passed sigma [% x]", sigma)
+	myLogger.Debug("passed payload [% x]", payload)
+	myLogger.Debug("passed binding [% x]", binding)
+
+	ok, err := stub.VerifySignature(
+		certificate,
+		sigma,
+		append(payload, binding...),
+	)
+	if err != nil {
+		myLogger.Error("Failed checking signature [%s]", err)
+		return ok, err
+	}
+	if !ok {
+		myLogger.Error("Invalid signature")
+	}
+
+	myLogger.Debug("Check caller...Verified!")
+
+	return ok, err
 }
 
 func (t *SimpleChaincode) createTableUsers(stub *shim.ChaincodeStub) error {
@@ -201,9 +264,9 @@ func (t *SimpleChaincode) deleteRowUsers(stub *shim.ChaincodeStub, args []string
         return errors.New("deleteRowUsers has 1 arguments")
     }
 
-    col1Val := args[0]
+    keyUId := args[0]
     var columns []shim.Column
-    col1 := shim.Column{Value: &shim.Column_String_{String_: col1Val}}
+    col1 := shim.Column{Value: &shim.Column_String_{String_: keyUId}}
     columns = append(columns, col1)
 
     err := stub.DeleteRow("Users", columns)
@@ -213,22 +276,65 @@ func (t *SimpleChaincode) deleteRowUsers(stub *shim.ChaincodeStub, args []string
         return errors.New(msg)
     }
 
-    //XXX JHA : Effacer tous les diplomes avec userId == col1Val
+    //XXX JHA : Effacer tous les diplomes avec userId == keyUId
+
+    tableName := "Diplomas"
+    rowChannel, err := stub.GetRows(tableName, columns)
+    if err != nil {
+        msg := fmt.Sprintf("getRows '%s' failed, %s", tableName, err)
+        fmt.Println(msg)
+        return errors.New(msg)
+    }
+    // XXX JHA : Cas table vide ou pas d'enr c.f. criteres ?
+
+    var rows []shim.Row
+    for {
+        select {
+        case row, ok := <-rowChannel:
+            if !ok {
+                rowChannel = nil
+            } else {
+                rows = append(rows, row)
+            }
+        }
+        if rowChannel == nil {
+            break
+        }
+    }
+
+    if len(rows) == 0 {
+        fmt.Println("No diploma to delete")
+        return nil
+    }
+
+    for i,_ := range rows {
+        userId    := rows[i].Columns[0].GetString_()
+        diplomaId := rows[i].Columns[1].GetString_()
+        var argsBis []string;
+        argsBis = append(argsBis,userId)
+        argsBis = append(argsBis,diplomaId)
+        if err := t.deleteRowDiplomas(stub,argsBis); err != nil {
+            return err
+        }
+    }
 
     return nil
 }
 
 func (t *SimpleChaincode) deleteRowDiplomas(stub *shim.ChaincodeStub, args []string) error {
     fmt.Printf("deleteRowDiplomas(...,%v)\n",args)
-    if len(args) != 1 {
+    if len(args) != 2 {
         fmt.Printf("Error: deleteRowDiplomas called with %d argument(s) (%v)\n",len(args),args)
         return errors.New("deleteRowDiplomas has 1 arguments")
     }
 
-    col1Val := args[0]
+    keyUId := args[0]
+    keyDId := args[1]
     var columns []shim.Column
-    col1 := shim.Column{Value: &shim.Column_String_{String_: col1Val}}
+    col1 := shim.Column{Value: &shim.Column_String_{String_: keyUId}}
     columns = append(columns, col1)
+    col2 := shim.Column{Value: &shim.Column_String_{String_: keyDId}}
+    columns = append(columns, col2)
 
     err := stub.DeleteRow("Diplomas", columns)
     if err != nil {
@@ -338,6 +444,26 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 
 func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
     fmt.Printf("Invoke(...,'%s',%v)\n",function,args)
+	// Verify the identity of the caller
+	// Only an administrator can invoke a function
+	adminCertificate, err := stub.GetState("admin")
+	if err != nil {
+        msg := "Failed fetching admin identity"
+		myLogger.Error(msg)
+		return nil, errors.New(msg)
+	}
+
+	ok, err := t.isCaller(stub, adminCertificate)
+	if err != nil {
+        msg := "Failed checking admin identity"
+		myLogger.Error(msg)
+		return nil, errors.New(msg)
+	}
+	if !ok {
+        msg := "The caller is not an administrator"
+		myLogger.Error(msg)
+		return nil, errors.New(msg)
+	}
     // Handle different functions
     switch function {
         case "init":                         // Initialize the chaincode
@@ -410,7 +536,9 @@ func (t *SimpleChaincode) getRowUsers(stub *shim.ChaincodeStub, keyUId string) (
 
     row, err := stub.GetRow("Users", columns)
     if err != nil {
-        return nil, fmt.Errorf("getRowUsers failed, %s", err)
+        msg := fmt.Sprintf("getRowUsers failed, %s", err)
+        fmt.Println(msg)
+        return nil, errors.New(msg)
     }
 
     if len(row.Columns) == 0 {
@@ -448,7 +576,9 @@ func (t *SimpleChaincode) getRowDiplomas(stub *shim.ChaincodeStub, keyUId, keyDI
 
     row, err := stub.GetRow("Diplomas", columns)
     if err != nil {
-        return nil, fmt.Errorf("getRowDiplomas failed, %s", err)
+        msg := fmt.Sprintf("getRowDiplomas failed, %s", err)
+        fmt.Println(msg)
+        return nil, errors.New(msg)
     }
 
     if len(row.Columns) == 0 {
@@ -485,7 +615,9 @@ func (t *SimpleChaincode) getRowsByUIdDiplomas(stub *shim.ChaincodeStub, keyUId 
     tableName := "Diplomas"
     rowChannel, err := stub.GetRows(tableName, columns)
     if err != nil {
-        return nil, fmt.Errorf("getRowsByUIdDiplomas failed, %s", err)
+        msg := fmt.Sprintf("getRows '%s' failed, %s", tableName, err)
+        fmt.Println(msg)
+        return nil, errors.New(msg)
     }
 
     var rows []shim.Row
