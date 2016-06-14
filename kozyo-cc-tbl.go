@@ -9,25 +9,20 @@ package main
 import (
     "errors"
     "fmt"
-  /*"strconv"
-    "strings"*/
+    "strconv"
+  //"strings"  
     "encoding/json"
 
   //"github.com/openblockchain/obc-peer/openchain/chaincode/shim"
     "github.com/hyperledger/fabric/core/chaincode/shim"
-  //"github.com/op/go-logging"
 )
-
-//var myLogger = logging.MustGetLogger("kozyo")
 
 // SimpleChaincode example simple Chaincode implementation
 type SimpleChaincode struct {
 }
 
-const userPrefix = "usr:"
-const diplomaPrefix = "dpl:"
-const allUsersKey = "allUsers"
-const allDiplomasKey = "allDiplomas"
+const usersTblName = "Users"
+const diplomasTblName = "Diplomas"
 
 type User struct {
     UserId    string `json:"user_id"`
@@ -53,10 +48,10 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
     // Initialize the collection of commercial paper keys
     fmt.Println("Initializing kozyo")
 
-    usersTable, err := stub.GetTable("Users")
+    usersTable, err := stub.GetTable(usersTblName)
     if usersTable != nil && err == nil {
-        fmt.Println("Users table already exists, deleting it")
-        if err := t.deleteTableUsers(stub); err != nil {
+        fmt.Printf("%s table already exists, deleting it\n",usersTblName)
+        if err := t.deleteTable(stub,usersTblName); err != nil {
             return nil, err
         }
     }
@@ -64,10 +59,10 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
         return nil, err
     }
 
-    diplomasTable, err := stub.GetTable("Diplomas")
+    diplomasTable, err := stub.GetTable(diplomasTblName)
     if diplomasTable != nil && err == nil {
-        fmt.Println("Diplomas table already exists, deleting it")
-        if err := t.deleteTableDiplomas(stub); err != nil {
+        fmt.Printf("%s table already exists, deleting it\n",diplomasTblName)
+        if err := t.deleteTable(stub,diplomasTblName); err != nil {
             return nil, err
         }
     }
@@ -81,20 +76,20 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 
 func (t *SimpleChaincode) createTableUsers(stub *shim.ChaincodeStub) error {
     fmt.Println("createTableUsers()")
-    var columnDefsUsers []*shim.ColumnDefinition
+    var columnDefs []*shim.ColumnDefinition
     columnUserIdDef    := shim.ColumnDefinition{Name: "UserId", Type: shim.ColumnDefinition_STRING, Key: true}
     columnEmailDef     := shim.ColumnDefinition{Name: "Email", Type: shim.ColumnDefinition_STRING, Key: false}
     columnFirstNameDef := shim.ColumnDefinition{Name: "FirstName", Type: shim.ColumnDefinition_STRING, Key: false}
     columnLastNameDef  := shim.ColumnDefinition{Name: "LastName", Type: shim.ColumnDefinition_STRING, Key: false}
     columnFbIdDef      := shim.ColumnDefinition{Name: "FbId", Type: shim.ColumnDefinition_STRING, Key: false}
 
-    columnDefsUsers = append(columnDefsUsers, &columnUserIdDef)
-    columnDefsUsers = append(columnDefsUsers, &columnEmailDef)
-    columnDefsUsers = append(columnDefsUsers, &columnFirstNameDef)
-    columnDefsUsers = append(columnDefsUsers, &columnLastNameDef)
-    columnDefsUsers = append(columnDefsUsers, &columnFbIdDef)
+    columnDefs = append(columnDefs, &columnUserIdDef)
+    columnDefs = append(columnDefs, &columnEmailDef)
+    columnDefs = append(columnDefs, &columnFirstNameDef)
+    columnDefs = append(columnDefs, &columnLastNameDef)
+    columnDefs = append(columnDefs, &columnFbIdDef)
 
-    if err := stub.CreateTable("Users", columnDefsUsers); err != nil {
+    if err := stub.CreateTable(usersTblName, columnDefs); err != nil {
         msg := fmt.Sprintf("Error in CreateTable: %s", err)
         fmt.Println(msg)
     }
@@ -103,49 +98,39 @@ func (t *SimpleChaincode) createTableUsers(stub *shim.ChaincodeStub) error {
 
 func (t *SimpleChaincode) createTableDiplomas(stub *shim.ChaincodeStub) error {
     fmt.Println("createTableDiplomas()")
-    var columnDefsDiplomas []*shim.ColumnDefinition
+    var columnDefs []*shim.ColumnDefinition
     columnUserIdDef    := shim.ColumnDefinition{Name: "UserId", Type: shim.ColumnDefinition_STRING, Key: true}
     columnDiplomaIdDef := shim.ColumnDefinition{Name: "DiplomaId", Type: shim.ColumnDefinition_STRING, Key: true}
     columnLabelDef     := shim.ColumnDefinition{Name: "Label", Type: shim.ColumnDefinition_STRING, Key: false}
     columnDateDef      := shim.ColumnDefinition{Name: "Date", Type: shim.ColumnDefinition_STRING, Key: false}
 
-    columnDefsDiplomas = append(columnDefsDiplomas, &columnUserIdDef)
-    columnDefsDiplomas = append(columnDefsDiplomas, &columnDiplomaIdDef)
-    columnDefsDiplomas = append(columnDefsDiplomas, &columnLabelDef)
-    columnDefsDiplomas = append(columnDefsDiplomas, &columnDateDef)
+    columnDefs = append(columnDefs, &columnUserIdDef)
+    columnDefs = append(columnDefs, &columnDiplomaIdDef)
+    columnDefs = append(columnDefs, &columnLabelDef)
+    columnDefs = append(columnDefs, &columnDateDef)
 
-    if err := stub.CreateTable("Diplomas", columnDefsDiplomas); err != nil {
+    if err := stub.CreateTable(diplomasTblName, columnDefs); err != nil {
         msg := fmt.Sprintf("Error in CreateTable: %s", err)
         fmt.Println(msg)
     }
     return nil;
 }
 
-func (t *SimpleChaincode) deleteTableUsers(stub *shim.ChaincodeStub) error {
-    fmt.Println("deleteTableUsers()")
+func (t *SimpleChaincode) deleteTable(stub *shim.ChaincodeStub,tblName string) error {
+    fmt.Printf("deleteTable(%s)\n",tblName)
 
-    if err := stub.DeleteTable("Users"); err != nil {
-        msg := fmt.Sprintf("Error in DeleteTable: %s", err)
+    if err := stub.DeleteTable(tblName); err != nil {
+        msg := fmt.Sprintf("Error in DeleteTable(%s): %s", tblName,err)
         fmt.Println(msg)
     }
     return nil;
 }
 
-func (t *SimpleChaincode) deleteTableDiplomas(stub *shim.ChaincodeStub) error {
-    fmt.Println("deleteTableDiplomas()")
-
-    if err := stub.DeleteTable("Diplomas"); err != nil {
-        msg := fmt.Sprintf("Error in DeleteTable: %s", err)
-        fmt.Println(msg)
-    }
-    return nil;
-}
-
-func (t *SimpleChaincode) insertRowUsers(stub *shim.ChaincodeStub, args []string) error {
-    fmt.Printf("insertRowUsers(...,%v)\n",args)
-    if len(args) != 5 {
-        fmt.Printf("Error: insertRowUsers called with %d argument(s) (%v)\n",len(args),args)
-        return errors.New("insertRowUsers has 5 arguments")
+func (t *SimpleChaincode) insertRow(stub *shim.ChaincodeStub, tblName string, nbCols int, args []string) error {
+    fmt.Printf("insertRow(...,%s,%d,%v)\n",tblName,nbCols,args)
+    if len(args) != nbCols {
+        fmt.Printf("Error: insertRow called with %d argument(s) (%v)\n",len(args),args)
+        return errors.New("insertRow has "+strconv.Itoa(nbCols)+" arguments")
     }
 
     var columns []*shim.Column
@@ -155,77 +140,53 @@ func (t *SimpleChaincode) insertRowUsers(stub *shim.ChaincodeStub, args []string
     }
 
     row := shim.Row{Columns: columns}
-    ok, err := stub.InsertRow("Users", row)
+    ok, err := stub.InsertRow(tblName, row)
     if err != nil {
-        msg := fmt.Sprintf("insertRowUsers operation failed. %s", err)
+        msg := fmt.Sprintf("insertRow operation failed. %s", err)
         fmt.Println(msg)
         return errors.New(msg)
     }
     if !ok {
-        msg := "insertRowUsers operation failed. Row with given key already exists"
+        msg := "insertRow operation failed. Row with given key already exists"
         fmt.Println(msg)
         return errors.New(msg)
     }
     return nil
 }
 
-func (t *SimpleChaincode) insertRowDiplomas(stub *shim.ChaincodeStub, args []string) error {
-    fmt.Printf("insertRowDiplomas(...,%v)\n",args)
-    if len(args) != 4 {
-        fmt.Printf("Error: insertRowDiplomas called with %d argument(s) (%v)\n",len(args),args)
-        return errors.New("insertRowDiplomas has 4 arguments")
+func (t *SimpleChaincode) deleteRow(stub *shim.ChaincodeStub, tblName string, nbCols int, args []string) error {
+    fmt.Printf("deleteRow(...,%s,%d,%v)\n",tblName,nbCols,args)
+    if len(args) != nbCols {
+        fmt.Printf("Error: deleteRow called with %d argument(s) (%v)\n",len(args),args)
+        return errors.New("deleteRow has "+strconv.Itoa(nbCols)+" arguments")
     }
 
-    var columns []*shim.Column
-    for _,arg := range args {
-        col := shim.Column{Value: &shim.Column_String_{String_: arg}}   // Note: All cols contain strings
-        columns = append(columns, &col)
-    }
-
-    row := shim.Row{Columns: columns}
-    ok, err := stub.InsertRow("Diplomas", row)
-    if err != nil {
-        msg := fmt.Sprintf("insertRowDiplomas operation failed. %s", err)
-        fmt.Println(msg)
-        return errors.New(msg)
-    }
-    if !ok {
-        msg := "insertRowUsers operation failed. Row with given key already exists"
-        fmt.Println(msg)
-        return errors.New(msg)
-    }
-    return nil
-}
-
-func (t *SimpleChaincode) deleteRowUsers(stub *shim.ChaincodeStub, args []string) error {
-    fmt.Printf("deleteRowUsers(...,%v)\n",args)
-    if len(args) != 1 {
-        fmt.Printf("Error: deleteRowUsers called with %d argument(s) (%v)\n",len(args),args)
-        return errors.New("deleteRowUsers has 1 arguments")
-    }
-
-    keyUId := args[0]
     var columns []shim.Column
-    col1 := shim.Column{Value: &shim.Column_String_{String_: keyUId}}
+    for _,arg := range args {
+        col := shim.Column{Value: &shim.Column_String_{String_: arg}}   // Note: All cols contain strings
+        columns = append(columns, col)
+    }
+
+    err := stub.DeleteRow(tblName, columns)
+    if err != nil {
+        msg := fmt.Sprintf("deleteRow operation failed. %s", err)
+        fmt.Println(msg)
+        return errors.New(msg)
+    }
+    return nil
+}
+
+func (t *SimpleChaincode) deleteUsersDiplomas(stub *shim.ChaincodeStub, uidKey string) error {
+    fmt.Printf("deleteUsersDiplomas(...,%v)\n",uidKey)
+    var columns []shim.Column
+    col1 := shim.Column{Value: &shim.Column_String_{String_: uidKey}}
     columns = append(columns, col1)
-
-    err := stub.DeleteRow("Users", columns)
+    rowChannel, err := stub.GetRows(diplomasTblName, columns)
     if err != nil {
-        msg := fmt.Sprintf("deleteRowUsers operation failed. %s", err)
+        msg := fmt.Sprintf("getRows '%s' failed, %s", diplomasTblName, err)
         fmt.Println(msg)
         return errors.New(msg)
     }
-
-    //XXX JHA : Effacer tous les diplomes avec userId == keyUId
-
-    tableName := "Diplomas"
-    rowChannel, err := stub.GetRows(tableName, columns)
-    if err != nil {
-        msg := fmt.Sprintf("getRows '%s' failed, %s", tableName, err)
-        fmt.Println(msg)
-        return errors.New(msg)
-    }
-    // XXX JHA : Cas table vide ou pas d'enr c.f. criteres ?
 
     var rows []shim.Row
     for {
@@ -253,7 +214,7 @@ func (t *SimpleChaincode) deleteRowUsers(stub *shim.ChaincodeStub, args []string
         var argsBis []string;
         argsBis = append(argsBis,userId)
         argsBis = append(argsBis,diplomaId)
-        if err := t.deleteRowDiplomas(stub,argsBis); err != nil {
+        if err := t.deleteRow(stub,diplomasTblName,2,argsBis); err != nil {
             return err
         }
     }
@@ -261,36 +222,11 @@ func (t *SimpleChaincode) deleteRowUsers(stub *shim.ChaincodeStub, args []string
     return nil
 }
 
-func (t *SimpleChaincode) deleteRowDiplomas(stub *shim.ChaincodeStub, args []string) error {
-    fmt.Printf("deleteRowDiplomas(...,%v)\n",args)
-    if len(args) != 2 {
-        fmt.Printf("Error: deleteRowDiplomas called with %d argument(s) (%v)\n",len(args),args)
-        return errors.New("deleteRowDiplomas has 1 arguments")
-    }
-
-    keyUId := args[0]
-    keyDId := args[1]
-    var columns []shim.Column
-    col1 := shim.Column{Value: &shim.Column_String_{String_: keyUId}}
-    columns = append(columns, col1)
-    col2 := shim.Column{Value: &shim.Column_String_{String_: keyDId}}
-    columns = append(columns, col2)
-
-    err := stub.DeleteRow("Diplomas", columns)
-    if err != nil {
-        msg := fmt.Sprintf("deleteRowDiplomas operation failed. %s", err)
-        fmt.Println(msg)
-        return errors.New(msg)
-    }
-
-    return nil
-}
-
-func (t *SimpleChaincode) replaceRowUsers(stub *shim.ChaincodeStub, args []string) error {
-    fmt.Printf("replaceRowUsers(...,%v)\n",args)
-    if len(args) != 5 {
-        fmt.Printf("Error: replaceRowUsers called with %d argument(s) (%v)\n",len(args),args)
-        return errors.New("replaceRowUsers has 5 arguments")
+func (t *SimpleChaincode) replaceRow(stub *shim.ChaincodeStub, tblName string, nbCols int, args []string) error {
+    fmt.Printf("replaceRow(...,%s,%d,%v)\n",tblName,nbCols,args)
+    if len(args) != nbCols {
+        fmt.Printf("Error: replaceRow called with %d argument(s) (%v)\n",len(args),args)
+        return errors.New("replaceRow has "+strconv.Itoa(nbCols)+" arguments")
     }
 
     var columns []*shim.Column
@@ -300,40 +236,14 @@ func (t *SimpleChaincode) replaceRowUsers(stub *shim.ChaincodeStub, args []strin
     }
 
     row := shim.Row{Columns: columns}
-    ok, err := stub.ReplaceRow("Users", row)
+    ok, err := stub.ReplaceRow(tblName, row)
     if err != nil {
-        msg := fmt.Sprintf("replaceRowUsers operation failed. %s", err)
+        msg := fmt.Sprintf("replaceRow operation failed. %s", err)
         fmt.Println(msg)
         return errors.New(msg)
     }
     if !ok {
-        return errors.New("replaceRowUsers operation failed. Row with key '"+args[0]+"' does not exist")
-    }
-    return nil
-}
-
-func (t *SimpleChaincode) replaceRowDiplomas(stub *shim.ChaincodeStub, args []string) error {
-    fmt.Printf("replaceRowDiplomas(...,%v)\n",args)
-    if len(args) != 4 {
-        fmt.Printf("Error: replaceRowDiplomas called with %d argument(s) (%v)\n",len(args),args)
-        return errors.New("replaceRowDiplomas has 4 arguments")
-    }
-
-    var columns []*shim.Column
-    for _,arg := range args {
-        col := shim.Column{Value: &shim.Column_String_{String_: arg}}   // Note: All cols contain strings
-        columns = append(columns, &col)
-    }
-
-    row := shim.Row{Columns: columns}
-    ok, err := stub.ReplaceRow("Diplomas", row)
-    if err != nil {
-        msg := fmt.Sprintf("replaceRowDiplomas operation failed. %s", err)
-        fmt.Println(msg)
-        return errors.New(msg)
-    }
-    if !ok {
-        return errors.New("replaceRowDiplomas operation failed. Row with key '"+args[0]+"' does not exist")
+        return errors.New("replaceRow operation failed. Row with key '"+args[0]+"' does not exist")
     }
     return nil
 }
@@ -348,18 +258,6 @@ func (t *SimpleChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byt
     }
 
     key := args[0]
-    /* Check for additional clean-up to avoid references to deleted keys
-    if strings.HasPrefix(key,userPrefix) {
-        if err := userCleanup(stub,key); err != nil {
-            return nil,err
-        }
-    } else if strings.HasPrefix(key,diplomaPrefix) {
-        if err := diplomaCleanup(stub,key,true); err != nil {
-            return nil,err
-        }
-    }
-    */
-
     err := stub.DelState(key)    // Remove the key from chaincode state
     if err != nil {
         fmt.Println("Error: del state " + key + " => " + err.Error())
@@ -368,13 +266,6 @@ func (t *SimpleChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byt
     fmt.Println("Del state '" + key + "' => OK")
     return nil, nil
 }
-
-/* Do additional clean-up when a user is deleted
-func userCleanup(stub *shim.ChaincodeStub, userKey string) error 
-
-// Do additional clean-up when a diploma is deleted
-func diplomaCleanup(stub *shim.ChaincodeStub, diplomaKey string,doUserUpd bool) error 
-*/
 
 // Run callback representing the invocation of a chaincode
 func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
@@ -393,21 +284,24 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
         case "createTableDiplomas" :
             return nil, t.createTableDiplomas(stub);
         case "deleteTableUsers" :
-            return nil, t.deleteTableUsers(stub);
+            return nil, t.deleteTable(stub,usersTblName);
         case "deleteTableDiplomas" :
-            return nil, t.deleteTableDiplomas(stub);
+            return nil, t.deleteTable(stub,diplomasTblName);
         case "insertRowUsers" :
-            return nil, t.insertRowUsers(stub, args)
+            return nil, t.insertRow(stub, usersTblName, 5, args)
         case "insertRowDiplomas" :
-            return nil, t.insertRowDiplomas(stub, args)
+            return nil, t.insertRow(stub, diplomasTblName, 4, args)
         case "deleteRowUsers" :
-            return nil, t.deleteRowUsers(stub, args)
+            if err := t.deleteRow(stub, usersTblName, 1, args); err != nil {
+                return nil, err;
+            }
+            return nil, t.deleteUsersDiplomas(stub,args[0]);
         case "deleteRowDiplomas" :
-            return nil, t.deleteRowDiplomas(stub, args)
+            return nil, t.deleteRow(stub, diplomasTblName, 2, args)
         case "replaceRowUsers" :
-            return nil, t.replaceRowUsers(stub, args)
+            return nil, t.replaceRow(stub, usersTblName, 5, args)
         case "replaceRowDiplomas" :
-            return nil, t.replaceRowDiplomas(stub, args)
+            return nil, t.replaceRow(stub, diplomasTblName, 4, args)
         case "delete" :                // Remove args[0] from state
             return t.delete(stub, args)
     }
@@ -454,7 +348,7 @@ func (t *SimpleChaincode) getRowUsers(stub *shim.ChaincodeStub, keyUId string) (
     col := shim.Column{Value: &shim.Column_String_{String_: keyUId}}
     columns = append(columns, col)
 
-    row, err := stub.GetRow("Users", columns)
+    row, err := stub.GetRow(usersTblName, columns)
     if err != nil {
         msg := fmt.Sprintf("getRowUsers failed, %s", err)
         fmt.Println(msg)
@@ -494,7 +388,7 @@ func (t *SimpleChaincode) getRowDiplomas(stub *shim.ChaincodeStub, keyUId, keyDI
     col2 := shim.Column{Value: &shim.Column_String_{String_: keyDId}}
     columns = append(columns, col2)
 
-    row, err := stub.GetRow("Diplomas", columns)
+    row, err := stub.GetRow(diplomasTblName, columns)
     if err != nil {
         msg := fmt.Sprintf("getRowDiplomas failed, %s", err)
         fmt.Println(msg)
@@ -532,10 +426,9 @@ func (t *SimpleChaincode) getRowsByUIdDiplomas(stub *shim.ChaincodeStub, keyUId 
     col1 := shim.Column{Value: &shim.Column_String_{String_: keyUId}}
     columns = append(columns, col1)
 
-    tableName := "Diplomas"
-    rowChannel, err := stub.GetRows(tableName, columns)
+    rowChannel, err := stub.GetRows(diplomasTblName, columns)
     if err != nil {
-        msg := fmt.Sprintf("getRows '%s' failed, %s", tableName, err)
+        msg := fmt.Sprintf("getRows '%s' failed, %s", diplomasTblName, err)
         fmt.Println(msg)
         return nil, errors.New(msg)
     }
