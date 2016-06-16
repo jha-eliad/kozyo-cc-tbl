@@ -22,7 +22,7 @@ type SimpleChaincode struct {
 }
 
 const usersTblName = "Users"
-const diplomasTblName = "Diplomas"
+const awardsTblName = "Awards"
 
 type User struct {
     UserId    string `json:"user_id"`
@@ -30,14 +30,18 @@ type User struct {
     FirstName string `json:"first_name"`
     LastName  string `json:"last_name"`
     FbId      string `json:"fb_id"`
-    Diplomas  []string `json:"diplomas"`
+    PictureUrl string `json:"picture_url"`
+    PictureMd5 string `json:"picture_md5"`
 }
 
-type Diploma struct {
+type Award struct {
     UserId string `json:"user_id"`
-    DiplomaId string `json:"diploma_id"`
+    AwardId string `json:"award_id"`
+    Prize string `json:"prize"`
     Label  string `json:"label"`
     Date   string `json:"date"`
+    PictureUrl string `json:"picture_url"`
+    PictureMd5 string `json:"picture_md5"`
 }
 
 type Record struct {
@@ -59,14 +63,14 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
         return nil, err
     }
 
-    diplomasTable, err := stub.GetTable(diplomasTblName)
-    if diplomasTable != nil && err == nil {
-        fmt.Printf("%s table already exists, deleting it\n",diplomasTblName)
-        if err := t.deleteTable(stub,diplomasTblName); err != nil {
+    awardsTable, err := stub.GetTable(awardsTblName)
+    if awardsTable != nil && err == nil {
+        fmt.Printf("%s table already exists, deleting it\n",awardsTblName)
+        if err := t.deleteTable(stub,awardsTblName); err != nil {
             return nil, err
         }
     }
-    if err := t.createTableDiplomas(stub); err != nil {
+    if err := t.createTableAwards(stub); err != nil {
         return nil, err
     }
 
@@ -77,43 +81,83 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 func (t *SimpleChaincode) createTableUsers(stub *shim.ChaincodeStub) error {
     fmt.Println("createTableUsers()")
     var columnDefs []*shim.ColumnDefinition
-    columnUserIdDef    := shim.ColumnDefinition{Name: "UserId", Type: shim.ColumnDefinition_STRING, Key: true}
-    columnEmailDef     := shim.ColumnDefinition{Name: "Email", Type: shim.ColumnDefinition_STRING, Key: false}
-    columnFirstNameDef := shim.ColumnDefinition{Name: "FirstName", Type: shim.ColumnDefinition_STRING, Key: false}
-    columnLastNameDef  := shim.ColumnDefinition{Name: "LastName", Type: shim.ColumnDefinition_STRING, Key: false}
-    columnFbIdDef      := shim.ColumnDefinition{Name: "FbId", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnUserIdDef     := shim.ColumnDefinition{Name: "UserId", Type: shim.ColumnDefinition_STRING, Key: true}
+    columnEmailDef      := shim.ColumnDefinition{Name: "Email", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnFirstNameDef  := shim.ColumnDefinition{Name: "FirstName", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnLastNameDef   := shim.ColumnDefinition{Name: "LastName", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnFbIdDef       := shim.ColumnDefinition{Name: "FbId", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnPictureUrlDef := shim.ColumnDefinition{Name: "PictureUrl", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnPictureMd5Def := shim.ColumnDefinition{Name: "PictureMd5", Type: shim.ColumnDefinition_STRING, Key: false}
 
     columnDefs = append(columnDefs, &columnUserIdDef)
     columnDefs = append(columnDefs, &columnEmailDef)
     columnDefs = append(columnDefs, &columnFirstNameDef)
     columnDefs = append(columnDefs, &columnLastNameDef)
     columnDefs = append(columnDefs, &columnFbIdDef)
+    columnDefs = append(columnDefs, &columnPictureUrlDef)
+    columnDefs = append(columnDefs, &columnPictureMd5Def)
 
     if err := stub.CreateTable(usersTblName, columnDefs); err != nil {
         msg := fmt.Sprintf("Error in CreateTable: %s", err)
         fmt.Println(msg)
+        return errors.New(msg)
     }
     return nil;
 }
 
-func (t *SimpleChaincode) createTableDiplomas(stub *shim.ChaincodeStub) error {
-    fmt.Println("createTableDiplomas()")
+func (t *SimpleChaincode) createTableAwards(stub *shim.ChaincodeStub) error {
+    fmt.Println("createTableAwards()")
     var columnDefs []*shim.ColumnDefinition
-    columnUserIdDef    := shim.ColumnDefinition{Name: "UserId", Type: shim.ColumnDefinition_STRING, Key: true}
-    columnDiplomaIdDef := shim.ColumnDefinition{Name: "DiplomaId", Type: shim.ColumnDefinition_STRING, Key: true}
-    columnLabelDef     := shim.ColumnDefinition{Name: "Label", Type: shim.ColumnDefinition_STRING, Key: false}
-    columnDateDef      := shim.ColumnDefinition{Name: "Date", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnUserIdDef     := shim.ColumnDefinition{Name: "UserId", Type: shim.ColumnDefinition_STRING, Key: true}
+    columnAwardIdDef    := shim.ColumnDefinition{Name: "AwardId", Type: shim.ColumnDefinition_STRING, Key: true}
+    columnPrizeDef      := shim.ColumnDefinition{Name: "Prize", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnLabelDef      := shim.ColumnDefinition{Name: "Label", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnDateDef       := shim.ColumnDefinition{Name: "Date", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnPictureUrlDef := shim.ColumnDefinition{Name: "PictureUrl", Type: shim.ColumnDefinition_STRING, Key: false}
+    columnPictureMd5Def := shim.ColumnDefinition{Name: "PictureMd5", Type: shim.ColumnDefinition_STRING, Key: false}
 
     columnDefs = append(columnDefs, &columnUserIdDef)
-    columnDefs = append(columnDefs, &columnDiplomaIdDef)
+    columnDefs = append(columnDefs, &columnAwardIdDef)
+    columnDefs = append(columnDefs, &columnPrizeDef)
     columnDefs = append(columnDefs, &columnLabelDef)
     columnDefs = append(columnDefs, &columnDateDef)
+    columnDefs = append(columnDefs, &columnPictureUrlDef)
+    columnDefs = append(columnDefs, &columnPictureMd5Def)
 
-    if err := stub.CreateTable(diplomasTblName, columnDefs); err != nil {
+    if err := stub.CreateTable(awardsTblName, columnDefs); err != nil {
         msg := fmt.Sprintf("Error in CreateTable: %s", err)
         fmt.Println(msg)
+        return errors.New(msg)
     }
     return nil;
+}
+
+func (t *SimpleChaincode) getTable(stub *shim.ChaincodeStub,tblName string) ([]byte, error) {
+    fmt.Printf("getTable(%s)\n",tblName)
+
+    table, err := stub.GetTable(tblName)
+    if err != nil {
+        msg := fmt.Sprintf("Error in GetTable(%s): %s", tblName,err)
+        fmt.Println(msg)
+        return nil, errors.New(msg)
+    }
+    fmt.Printf("table '%v', %d column(s):\n",table.Name,len(table.ColumnDefinitions));
+    for i,col := range table.ColumnDefinitions {
+        var isKey = ""
+        if col.Key {
+            isKey = ", key"
+        }
+        fmt.Printf("  [%d] '%s' %v%v\n",i,col.Name,col.Type,isKey)
+    }
+
+    tableDefBytes, err := json.Marshal(table)
+    if err != nil  {
+        msg := "Error marshalling table definition "
+        fmt.Println(msg)
+        return nil, errors.New(msg)
+    }
+    fmt.Printf("Marshall(table) -> %v\n",tableDefBytes)
+    return tableDefBytes,nil
 }
 
 func (t *SimpleChaincode) deleteTable(stub *shim.ChaincodeStub,tblName string) error {
@@ -122,6 +166,7 @@ func (t *SimpleChaincode) deleteTable(stub *shim.ChaincodeStub,tblName string) e
     if err := stub.DeleteTable(tblName); err != nil {
         msg := fmt.Sprintf("Error in DeleteTable(%s): %s", tblName,err)
         fmt.Println(msg)
+        return errors.New(msg)
     }
     return nil;
 }
@@ -176,14 +221,14 @@ func (t *SimpleChaincode) deleteRow(stub *shim.ChaincodeStub, tblName string, nb
     return nil
 }
 
-func (t *SimpleChaincode) deleteUsersDiplomas(stub *shim.ChaincodeStub, uidKey string) error {
-    fmt.Printf("deleteUsersDiplomas(...,%v)\n",uidKey)
+func (t *SimpleChaincode) deleteUsersAwards(stub *shim.ChaincodeStub, uidKey string) error {
+    fmt.Printf("deleteUsersAwards(...,%v)\n",uidKey)
     var columns []shim.Column
     col1 := shim.Column{Value: &shim.Column_String_{String_: uidKey}}
     columns = append(columns, col1)
-    rowChannel, err := stub.GetRows(diplomasTblName, columns)
+    rowChannel, err := stub.GetRows(awardsTblName, columns)
     if err != nil {
-        msg := fmt.Sprintf("getRows '%s' failed, %s", diplomasTblName, err)
+        msg := fmt.Sprintf("getRows '%s' failed, %s", awardsTblName, err)
         fmt.Println(msg)
         return errors.New(msg)
     }
@@ -204,17 +249,17 @@ func (t *SimpleChaincode) deleteUsersDiplomas(stub *shim.ChaincodeStub, uidKey s
     }
 
     if len(rows) == 0 {
-        fmt.Println("No diploma to delete")
+        fmt.Println("No award to delete")
         return nil
     }
 
     for i,_ := range rows {
-        userId    := rows[i].Columns[0].GetString_()
-        diplomaId := rows[i].Columns[1].GetString_()
+        userId  := rows[i].Columns[0].GetString_()
+        awardId := rows[i].Columns[1].GetString_()
         var argsBis []string;
         argsBis = append(argsBis,userId)
-        argsBis = append(argsBis,diplomaId)
-        if err := t.deleteRow(stub,diplomasTblName,2,argsBis); err != nil {
+        argsBis = append(argsBis,awardId)
+        if err := t.deleteRow(stub,awardsTblName,2,argsBis); err != nil {
             return err
         }
     }
@@ -281,27 +326,27 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
             return t.Init(stub, function, args)
         case "createTableUsers" :
             return nil, t.createTableUsers(stub);
-        case "createTableDiplomas" :
-            return nil, t.createTableDiplomas(stub);
+        case "createTableAwards" :
+            return nil, t.createTableAwards(stub);
         case "deleteTableUsers" :
             return nil, t.deleteTable(stub,usersTblName);
-        case "deleteTableDiplomas" :
-            return nil, t.deleteTable(stub,diplomasTblName);
+        case "deleteTableAwards" :
+            return nil, t.deleteTable(stub,awardsTblName);
         case "insertRowUsers" :
-            return nil, t.insertRow(stub, usersTblName, 5, args)
-        case "insertRowDiplomas" :
-            return nil, t.insertRow(stub, diplomasTblName, 4, args)
+            return nil, t.insertRow(stub, usersTblName, 7, args)
+        case "insertRowAwards" :
+            return nil, t.insertRow(stub, awardsTblName, 7, args)
         case "deleteRowUsers" :
             if err := t.deleteRow(stub, usersTblName, 1, args); err != nil {
                 return nil, err;
             }
-            return nil, t.deleteUsersDiplomas(stub,args[0]);
-        case "deleteRowDiplomas" :
-            return nil, t.deleteRow(stub, diplomasTblName, 2, args)
+            return nil, t.deleteUsersAwards(stub,args[0]);
+        case "deleteRowAwards" :
+            return nil, t.deleteRow(stub, awardsTblName, 2, args)
         case "replaceRowUsers" :
-            return nil, t.replaceRow(stub, usersTblName, 5, args)
-        case "replaceRowDiplomas" :
-            return nil, t.replaceRow(stub, diplomasTblName, 4, args)
+            return nil, t.replaceRow(stub, usersTblName, 7, args)
+        case "replaceRowAwards" :
+            return nil, t.replaceRow(stub, awardsTblName, 7, args)
         case "delete" :                // Remove args[0] from state
             return t.delete(stub, args)
     }
@@ -329,13 +374,15 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
             return bytes, nil
         case "getRowUsers" :
             return t.getRowUsers(stub,args[0]);
-        case "getRowDiplomas" :
+        case "getRowAwards" :
             if len(args) < 2 {
                 return nil, errors.New("Incorrect number of arguments. Expecting 2 or more arguments")
             }
-            return t.getRowDiplomas(stub,args[0],args[1]);
-        case "getRowsByUIdDiplomas" :
-            return t.getRowsByUIdDiplomas(stub,args[0]);
+            return t.getRowAwards(stub,args[0],args[1]);
+        case "getRowsByUIdAwards" :
+            return t.getRowsByUIdAwards(stub,args[0]);
+        case "getTable" :
+            return t.getTable(stub,args[0]);
         default:
             return nil, errors.New("Unsupported function '"+function+"'")
     }
@@ -360,13 +407,15 @@ func (t *SimpleChaincode) getRowUsers(stub *shim.ChaincodeStub, keyUId string) (
         return nil,nil
     }
 
-    userId    := row.Columns[0].GetString_()    // Note: We should have userId == keyUId
-    email     := row.Columns[1].GetString_()
-    firstName := row.Columns[2].GetString_()
-    lastName  := row.Columns[3].GetString_()
-    fbId      := row.Columns[4].GetString_()
+    userId     := row.Columns[0].GetString_()    // Note: We should have userId == keyUId
+    email      := row.Columns[1].GetString_()
+    firstName  := row.Columns[2].GetString_()
+    lastName   := row.Columns[3].GetString_()
+    fbId       := row.Columns[4].GetString_()
+    pictureUrl := row.Columns[5].GetString_()
+    pictureMd5 := row.Columns[6].GetString_()
 
-    user := User{UserId: userId, Email: email, FirstName: firstName, LastName: lastName, FbId: fbId}
+    user := User{UserId: userId, Email: email, FirstName: firstName, LastName: lastName, FbId: fbId, PictureUrl: pictureUrl, PictureMd5: pictureMd5}
     fmt.Printf("user=%v\n",user)
 
     userBytes, err := json.Marshal(&user)
@@ -379,18 +428,18 @@ func (t *SimpleChaincode) getRowUsers(stub *shim.ChaincodeStub, keyUId string) (
     return userBytes,nil
 }
 
-// Get a diploma by UserId & DiplomaId
-func (t *SimpleChaincode) getRowDiplomas(stub *shim.ChaincodeStub, keyUId, keyDId string) ([]byte, error) {
-    fmt.Printf("getRowDiplomas(...,'%s','%s')\n",keyUId,keyDId)
+// Get a award by UserId & AwardId
+func (t *SimpleChaincode) getRowAwards(stub *shim.ChaincodeStub, keyUId, keyDId string) ([]byte, error) {
+    fmt.Printf("getRowAwards(...,'%s','%s')\n",keyUId,keyDId)
     var columns []shim.Column
     col1 := shim.Column{Value: &shim.Column_String_{String_: keyUId}}
     columns = append(columns, col1)
     col2 := shim.Column{Value: &shim.Column_String_{String_: keyDId}}
     columns = append(columns, col2)
 
-    row, err := stub.GetRow(diplomasTblName, columns)
+    row, err := stub.GetRow(awardsTblName, columns)
     if err != nil {
-        msg := fmt.Sprintf("getRowDiplomas failed, %s", err)
+        msg := fmt.Sprintf("getRowAwards failed, %s", err)
         fmt.Println(msg)
         return nil, errors.New(msg)
     }
@@ -400,35 +449,38 @@ func (t *SimpleChaincode) getRowDiplomas(stub *shim.ChaincodeStub, keyUId, keyDI
         return nil,nil
     }
 
-    userId    := row.Columns[0].GetString_()    // Note: We should have userId == keyUId
-    diplomaId := row.Columns[1].GetString_()    // Note: We should have diplomaId == keyDId
-    label     := row.Columns[2].GetString_()
-    date      := row.Columns[3].GetString_()
+    userId     := row.Columns[0].GetString_()    // Note: We should have userId == keyUId
+    awardId    := row.Columns[1].GetString_()    // Note: We should have awardId == keyDId
+    prize      := row.Columns[2].GetString_()
+    label      := row.Columns[3].GetString_()
+    date       := row.Columns[4].GetString_()
+    pictureUrl := row.Columns[5].GetString_()
+    pictureMd5 := row.Columns[6].GetString_()
 
-    diploma := Diploma{DiplomaId: diplomaId, UserId: userId, Label: label, Date: date }
-    fmt.Printf("diploma=%v\n",diploma)
+    award := Award{AwardId: awardId, Prize: prize, UserId: userId, Label: label, Date: date, PictureUrl: pictureUrl, PictureMd5: pictureMd5 }
+    fmt.Printf("award=%v\n",award)
 
     // Marshal the structure
-    diplomaBytes, err := json.Marshal(&diploma)
+    awardBytes, err := json.Marshal(&award)
     if err != nil  {
-        msg := "Error marshalling diploma " + diplomaId
+        msg := "Error marshalling award " + awardId
         fmt.Println(msg)
         return nil, errors.New(msg)
     }
-    fmt.Printf("Marshall(diploma) -> %v\n",diplomaBytes)
-    return diplomaBytes,nil
+    fmt.Printf("Marshall(award) -> %v\n",awardBytes)
+    return awardBytes,nil
 }
 
-// Get all diplomas by UserId
-func (t *SimpleChaincode) getRowsByUIdDiplomas(stub *shim.ChaincodeStub, keyUId string) ([]byte, error) {
-    fmt.Printf("getRowsByUIdDiplomas(...,'%s')\n",keyUId)
+// Get all awards by UserId
+func (t *SimpleChaincode) getRowsByUIdAwards(stub *shim.ChaincodeStub, keyUId string) ([]byte, error) {
+    fmt.Printf("getRowsByUIdAwards(...,'%s')\n",keyUId)
     var columns []shim.Column
     col1 := shim.Column{Value: &shim.Column_String_{String_: keyUId}}
     columns = append(columns, col1)
 
-    rowChannel, err := stub.GetRows(diplomasTblName, columns)
+    rowChannel, err := stub.GetRows(awardsTblName, columns)
     if err != nil {
-        msg := fmt.Sprintf("getRows '%s' failed, %s", diplomasTblName, err)
+        msg := fmt.Sprintf("getRows '%s' failed, %s", awardsTblName, err)
         fmt.Println(msg)
         return nil, errors.New(msg)
     }
@@ -453,27 +505,31 @@ func (t *SimpleChaincode) getRowsByUIdDiplomas(stub *shim.ChaincodeStub, keyUId 
         return nil,nil
     }
 
-    var diplomas []Diploma
+    var awards []Award
     for i,_ := range rows {
-        userId    := rows[i].Columns[0].GetString_()
-        diplomaId := rows[i].Columns[1].GetString_()
-        label     := rows[i].Columns[2].GetString_()
-        date      := rows[i].Columns[3].GetString_()
+        userId     := rows[i].Columns[0].GetString_()
+        awardId    := rows[i].Columns[1].GetString_()
+        prize      := rows[i].Columns[2].GetString_()
+        label      := rows[i].Columns[3].GetString_()
+        date       := rows[i].Columns[4].GetString_()
+        pictureUrl := rows[i].Columns[5].GetString_()
+        pictureMd5 := rows[i].Columns[6].GetString_()
 
-        diploma := Diploma{DiplomaId: diplomaId, UserId: userId, Label: label, Date: date }
-        fmt.Printf("diploma[%v]=%v\n",i,diploma)
-        diplomas = append(diplomas,diploma)
+        award := Award{UserId: userId, AwardId: awardId, Prize: prize, Label: label, Date: date,
+                       PictureUrl: pictureUrl, PictureMd5: pictureMd5}
+        fmt.Printf("award[%v]=%v\n",i,award)
+        awards = append(awards,award)
     }
 
     // Marshal the array
-    diplomasBytes, err := json.Marshal(&diplomas)
+    awardsBytes, err := json.Marshal(&awards)
     if err != nil  {
-        msg := "Error marshalling diplomas "
+        msg := "Error marshalling awards "
         fmt.Println(msg)
         return nil, errors.New(msg)
     }
-    fmt.Printf("Marshall(diplomas) -> %v\n",diplomasBytes)
-    return diplomasBytes,nil
+    fmt.Printf("Marshall(awards) -> %v\n",awardsBytes)
+    return awardsBytes,nil
 }
 
 func main() {
